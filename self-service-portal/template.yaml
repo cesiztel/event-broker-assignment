@@ -89,6 +89,9 @@ Resources:
       Runtime: python3.9
       Architectures:
         - x86_64
+      Environment:
+        Variables:
+          TableName: !Join [ "-", [ !Ref Stage, !Ref TableName ] ]
       Events:
         SubscribeToEvent:
           Type: Api
@@ -100,6 +103,13 @@ Resources:
               Required: true
               ValidateBody: true
             RestApiId: !Ref SelfServicePortalApi
+      Policies:
+        - Statement:
+            - Sid: SSMPutSubscriptionItemStoragePolicy
+              Effect: Allow
+              Action:
+                - dynamodb:PutItem
+              Resource: !Join [ "/", [ !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table", !Join [ "-", [ !Ref Stage, !Ref TableName ] ] ] ]
 
   GetAllEventsFunction:
     Type: AWS::Serverless::Function
@@ -109,13 +119,23 @@ Resources:
       Runtime: python3.9
       Architectures:
         - x86_64
+      Environment:
+        Variables:
+          TableName: !Join [ "-", [ !Ref Stage, !Ref TableName ] ]
       Events:
         GetAllEvents:
           Type: Api
           Properties:
-            Path: /events/{unit}
+            Path: /events
             Method: get
             RestApiId: !Ref SelfServicePortalApi
+      Policies:
+        - Statement:
+            - Sid: Stmt1659384335476
+              Effect: Allow
+              Action:
+                - dynamodb:Scan
+              Resource: !Join [ "/", [ !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table", !Join [ "-", [ !Ref Stage, !Ref TableName ] ] ] ]
 
   SelfServiceEventsTable:
     Type: AWS::DynamoDB::Table
