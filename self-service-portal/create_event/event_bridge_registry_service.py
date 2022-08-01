@@ -20,7 +20,7 @@ class EventBridgeRegistryService:
     def __init__(self):
         self.client = boto3.client('schemas')
 
-    def registry(self, schema: EventBridgeRegistrySchema):
+    def registry(self, schema):
         return self.client.create_schema(
             Content=schema.content,
             RegistryName=schema.registry_name,

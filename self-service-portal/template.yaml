@@ -8,6 +8,9 @@ Parameters:
   Stage:
     Type: String
     Default: dev
+  TableName:
+    Type: String
+    Default: 'self-service-events-table'
 
 Globals:
   Function:
@@ -51,6 +54,9 @@ Resources:
       Runtime: python3.9
       Architectures:
         - x86_64
+      Environment:
+        Variables:
+          TableName: !Join ["-", [!Ref Stage, !Ref TableName]]
       Events:
         CreateEvent:
           Type: Api
@@ -62,6 +68,18 @@ Resources:
               Required: true
               ValidateBody: true
             RestApiId: !Ref SelfServicePortalApi
+      Policies:
+      - Statement:
+          - Sid: SSMCreateSchemasPolicy
+            Effect: Allow
+            Action:
+              - schemas:CreateSchema
+            Resource: !Sub "arn:aws:schemas:${AWS::Region}:${AWS::AccountId}:schema/*.events/*"
+          - Sid: SSMPutItemStoragePolicy
+            Effect: Allow
+            Action:
+              - dynamodb:PutItem
+            Resource: !Join ["/", [!Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table", !Join ["-", [!Ref Stage, !Ref TableName]]]]
 
   SubscribeToEventFunction:
     Type: AWS::Serverless::Function
@@ -99,6 +117,22 @@ Resources:
             Method: get
             RestApiId: !Ref SelfServicePortalApi
 
+  SelfServiceEventsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: "PK"
+          AttributeType: "S"
+        - AttributeName: "SK"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "PK"
+          KeyType: "HASH"
+        - AttributeName: "SK"
+          KeyType: "RANGE"
+      BillingMode: PAY_PER_REQUEST
+      TableName: !Join ["-", [!Ref Stage, !Ref TableName]]
+
 Outputs:
   SelfServicePortalApi:
     Description: "API Gateway endpoint URL for dev stage for self-service portal API"
@@ -121,3 +155,9 @@ Outputs:
   GetAllEventsFunctionIamRole:
     Description: "Implicit IAM Role created for Get all the events function"
     Value: !GetAtt GetAllEventsFunctionRole.Arn
+  SelfServiceEventsTable:
+    Description: "Self Service API datastore"
+    Value: !GetAtt SelfServiceEventsTable.Arn
+  SelfServiceEventsTableName:
+    Description: "Self Service API datastore name"
+    Value: !Join ["-", [!Ref Stage, !Ref TableName]]

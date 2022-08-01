@@ -1,3 +1,4 @@
+import os
 from event_data import EventData
 from schema_definition import SchemaDefinition
 from event_bridge_registry_service import EventBridgeRegistryService, EventBridgeRegistrySchema
@@ -9,15 +10,16 @@ def lambda_handler(event, context):
     event_data.attachSchemaContract(SchemaDefinition.generates(event_data))
 
     schema = EventBridgeRegistrySchema.from_event_data(event_data)
-    registryResult = EventBridgeRegistryService.registry(schema)  # Registry schema on EventBridge registry
+    registryResult = EventBridgeRegistryService().registry(schema)  # Registry schema on EventBridge registry
 
     createEventRequest = SelfServiceCreateEventRequest.from_event_data(event_data, registryResult['SchemaArn'])
-    SelfServiceStorageService().save(createEventRequest)  # Store the event on the main database
+    table_name = os.environ['TableName']
+    SelfServiceStorageService(table_name).save(createEventRequest)  # Store the event on the main database
 
     return {
         "statusCode": 200,
         "headers": {
             "Content-Type": "application/json"
         },
-        "body": schema.toJSON()
+        "body": event_data.toJSON()
     }
