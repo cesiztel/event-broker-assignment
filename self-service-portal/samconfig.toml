@@ -1,0 +1,11 @@
+version = 0.1
+[default]
+[default.deploy]
+[default.deploy.parameters]
+stack_name = "dev-self-service-portal"
+s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-cjiohql6x4wr"
+s3_prefix = "dev-self-service-portal"
+region = "eu-west-2"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+image_repositories = []

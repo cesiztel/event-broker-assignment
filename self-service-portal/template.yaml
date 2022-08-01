@@ -3,39 +3,121 @@ Transform: AWS::Serverless-2016-10-31
 Description: >
   self-service-portal
 
-  Sample SAM Template for self-service-portal
+  Self-service portal template
+Parameters:
+  Stage:
+    Type: String
+    Default: dev
 
-# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
 Globals:
   Function:
     Timeout: 3
 
 Resources:
-  HelloWorldFunction:
-    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+  SelfServicePortalApi:
+    Type: AWS::Serverless::Api
     Properties:
-      CodeUri: hello_world/
+      Name: SelfServicePortalApi
+      StageName: !Ref Stage
+      Models:
+        Unit:
+          type: object
+          required:
+            - unit
+          properties:
+            unit:
+              type: string
+        EventModel:
+          type: object
+          required:
+            - unit
+            - name
+            - schema
+          properties:
+            unit:
+              type: string
+            name:
+              type: string
+            description:
+              type: string
+            schema:
+              type: object
+
+  CreateEventFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: create_event/
       Handler: app.lambda_handler
       Runtime: python3.9
       Architectures:
         - x86_64
       Events:
-        HelloWorld:
-          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+        CreateEvent:
+          Type: Api
           Properties:
-            Path: /hello
+            Path: /events
+            Method: post
+            RequestModel:
+              Model: EventModel
+              Required: true
+              ValidateBody: true
+            RestApiId: !Ref SelfServicePortalApi
+
+  SubscribeToEventFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: subscribe_to_event/
+      Handler: app.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - x86_64
+      Events:
+        SubscribeToEvent:
+          Type: Api
+          Properties:
+            Path: /subscriptions/{eventName}/{eventVersion}
+            Method: post
+            RequestModel:
+              Model: Unit
+              Required: true
+              ValidateBody: true
+            RestApiId: !Ref SelfServicePortalApi
+
+  GetAllEventsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: get_events/
+      Handler: app.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - x86_64
+      Events:
+        GetAllEvents:
+          Type: Api
+          Properties:
+            Path: /events/{unit}
             Method: get
+            RestApiId: !Ref SelfServicePortalApi
 
 Outputs:
-  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
-  # Find out more about other implicit resources you can reference within SAM
-  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
-  HelloWorldApi:
-    Description: "API Gateway endpoint URL for Prod stage for Hello World function"
-    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/hello/"
-  HelloWorldFunction:
-    Description: "Hello World Lambda Function ARN"
-    Value: !GetAtt HelloWorldFunction.Arn
-  HelloWorldFunctionIamRole:
-    Description: "Implicit IAM Role created for Hello World function"
-    Value: !GetAtt HelloWorldFunctionRole.Arn
+  SelfServicePortalApi:
+    Description: "API Gateway endpoint URL for dev stage for self-service portal API"
+    Value: !Sub "https://${SelfServicePortalApi}.execute-api.${AWS::Region}.amazonaws.com/dev/"
+  CreateEventFunction:
+    Description: "Create event Lambda Function ARN"
+    Value: !GetAtt CreateEventFunction.Arn
+  CreateEventFunctionIamRole:
+    Description: "Implicit IAM Role created for Create Event function"
+    Value: !GetAtt CreateEventFunctionRole.Arn
+  SubscribeToEventFunction:
+    Description: "Subscribe to event Function ARN"
+    Value: !GetAtt SubscribeToEventFunction.Arn
+  SubscribeToEventFunctionIamRole:
+    Description: "Implicit IAM Role created for Subscribe to Event function"
+    Value: !GetAtt SubscribeToEventFunctionRole.Arn
+  GetAllEventsFunction:
+    Description: "Get all the events Funtion ARN"
+    Value: !GetAtt GetAllEventsFunction.Arn
+  GetAllEventsFunctionIamRole:
+    Description: "Implicit IAM Role created for Get all the events function"
+    Value: !GetAtt GetAllEventsFunctionRole.Arn
