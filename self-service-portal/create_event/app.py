@@ -1,42 +1,23 @@
-import json
-
-# import requests
+from event_data import EventData
+from schema_definition import SchemaDefinition
+from event_bridge_registry_service import EventBridgeRegistryService, EventBridgeRegistrySchema
+from app_storage_service import SelfServiceStorageService, SelfServiceCreateEventRequest
 
 
 def lambda_handler(event, context):
-    """Sample pure Lambda function
+    event_data = EventData.from_request(event)
+    event_data.attachSchemaContract(SchemaDefinition.generates(event_data))
 
-    Parameters
-    ----------
-    event: dict, required
-        API Gateway Lambda Proxy Input Format
+    schema = EventBridgeRegistrySchema.from_event_data(event_data)
+    registryResult = EventBridgeRegistryService.registry(schema)  # Registry schema on EventBridge registry
 
-        Event doc: https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html#api-gateway-simple-proxy-for-lambda-input-format
-
-    context: object, required
-        Lambda Context runtime methods and attributes
-
-        Context doc: https://docs.aws.amazon.com/lambda/latest/dg/python-context-object.html
-
-    Returns
-    ------
-    API Gateway Lambda Proxy Output Format: dict
-
-        Return doc: https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html
-    """
-
-    # try:
-    #     ip = requests.get("http://checkip.amazonaws.com/")
-    # except requests.RequestException as e:
-    #     # Send some context about this error to Lambda Logs
-    #     print(e)
-
-    #     raise e
+    createEventRequest = SelfServiceCreateEventRequest.from_event_data(event_data, registryResult['SchemaArn'])
+    SelfServiceStorageService().save(createEventRequest)  # Store the event on the main database
 
     return {
         "statusCode": 200,
-        "body": json.dumps({
-            "message": "hello world",
-            # "location": ip.text.replace("\n", "")
-        }),
+        "headers": {
+            "Content-Type": "application/json"
+        },
+        "body": schema.toJSON()
     }
