@@ -7,7 +7,7 @@ Following you can see the diagram of the propose solution without including the 
 can be applied to the architecture. You can read about the improvements not included on the solution design on the
 "Solution architecture improvements" on the below section.
 
-![alt text](documents/postnl-event-broker-assessment-Page-1.drawio.png "Solution architecture")
+![alt text](documents/postnl-event-broker-assessment.png "Solution architecture")
 
 ## Architectural components
 
