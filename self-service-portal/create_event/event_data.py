@@ -5,9 +5,10 @@ class EventData:
     """Dto representation of an event"""
     schema_definition = ''
 
-    def __init__(self, unit, name, description, schema_properties):
-        self.unit = unit
-        self.name = name
+    def __init__(application, connection_type, event_type, description, schema_properties):
+        self.application = application
+        self.content_type = connection_type
+        self.event_type = event_type
         self.description = description
         self.schema_properties = schema_properties
 
@@ -24,9 +25,10 @@ class EventData:
 
         request_body = json.loads(request["body"])
 
-        unit = request_body["unit"]
-        name = request_body["name"]
+        application = request_body["application"]
+        connection_type = request_body["connection_type"]
+        event_type = request_body["event_type"]
         description = request_body["description"] if 'description' in request_body else ""
         schema_properties = request_body["schema"]["properties"]
 
-        return EventData(unit, name, description, schema_properties)
+        return EventData(application, connection_type, event_type, description, schema_properties)

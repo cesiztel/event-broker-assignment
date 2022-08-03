@@ -3,14 +3,21 @@ from boto3.dynamodb.conditions import Attr
 
 
 class SelfServiceStorageService:
+    """Service dedicate to interact with the main storage"""
+    
+    _SK_KEY = "SK"
+    _SK_KEY_ATTRIBUTE = "CREATE_EVENT#"
+
     def __init__(self, table_name):
         self.client = boto3.resource('dynamodb')
         self.table = self.client.Table(table_name)
 
     def all(self):
+        """Get all the ressults from the datastorage"""
+
         results = []
         last_evaluated_key = None
-        filterExpression = Attr("SK").begins_with("CREATE_EVENT#")
+        filterExpression = Attr(self._SK_KEY).begins_with(self._SK_KEY_ATTRIBUTE)
 
         while True:
             if last_evaluated_key:

@@ -4,6 +4,7 @@ from event_data import EventData
 
 
 class EventBridgeRegistrySchema:
+    """Instantiate a registry class data"""
     def __init__(self, content, registry_name, schema_name, contract_type):
         self.content = content
         self.registry_name = registry_name
@@ -12,11 +13,15 @@ class EventBridgeRegistrySchema:
 
     @staticmethod
     def from_event_data(event_data: EventData):
-        return EventBridgeRegistrySchema(json.dumps(event_data.schema_definition), f'{event_data.unit}.events',
-                                         event_data.name, 'JSONSchemaDraft4')
-
+        return EventBridgeRegistrySchema(
+            json.dumps(event_data.schema_definition), 
+            "self.service.portal.registry",
+            event_data.registry_name, 
+            'JSONSchemaDraft4'
+        )
 
 class EventBridgeRegistryService:
+    """Main instance that manage operations agains the registry"""
     def __init__(self):
         self.client = boto3.client('schemas')
 

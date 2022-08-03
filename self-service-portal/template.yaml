@@ -1,16 +1,14 @@
-AWSTemplateFormatVersion: '2010-09-09'
+AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
 Description: >
-  self-service-portal
-
-  Self-service portal template
+  Self-Service Portal Service to manage brokers events by publishers and subscribers
 Parameters:
   Stage:
     Type: String
     Default: dev
   TableName:
     Type: String
-    Default: 'self-service-events-table'
+    Default: "self-service-events-table"
 
 Globals:
   Function:
@@ -23,26 +21,43 @@ Resources:
       Name: SelfServicePortalApi
       StageName: !Ref Stage
       Models:
-        Unit:
+        SubscriptionModel:
           type: object
           required:
-            - unit
+            - event_type
+            - version
+            - target_unit
+            - connection_type
+            - connection_string
           properties:
-            unit:
+            event_type:
+              type: string
+            version:
+              type: string
+            target_unit:
+              type: string
+            connection_type:
+              type: string
+              enum: ["HTTPS", "SQS", "LAMBDA"]
+            connection_string:
               type: string
         EventModel:
           type: object
           required:
-            - unit
-            - name
+            - application
+            - event_type
             - schema
+            - connection_type
           properties:
-            unit:
+            application:
               type: string
-            name:
+            event_type:
               type: string
             description:
               type: string
+            connection_type:
+              type: string
+              enum: ["HTTPS"]
             schema:
               type: object
 
@@ -69,17 +84,24 @@ Resources:
               ValidateBody: true
             RestApiId: !Ref SelfServicePortalApi
       Policies:
-      - Statement:
-          - Sid: SSMCreateSchemasPolicy
-            Effect: Allow
-            Action:
-              - schemas:CreateSchema
-            Resource: !Sub "arn:aws:schemas:${AWS::Region}:${AWS::AccountId}:schema/*.events/*"
-          - Sid: SSMPutItemStoragePolicy
-            Effect: Allow
-            Action:
-              - dynamodb:PutItem
-            Resource: !Join ["/", [!Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table", !Join ["-", [!Ref Stage, !Ref TableName]]]]
+        - Statement:
+            - Sid: SSMCreateSchemasPolicy
+              Effect: Allow
+              Action:
+                - schemas:CreateSchema
+              Resource: !Sub "arn:aws:schemas:${AWS::Region}:${AWS::AccountId}:schema/*.events/*"
+            - Sid: SSMPutItemStoragePolicy
+              Effect: Allow
+              Action:
+                - dynamodb:PutItem
+              Resource:
+                !Join [
+                  "/",
+                  [
+                    !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table",
+                    !Join ["-", [!Ref Stage, !Ref TableName]],
+                  ],
+                ]
 
   SubscribeToEventFunction:
     Type: AWS::Serverless::Function
@@ -91,15 +113,15 @@ Resources:
         - x86_64
       Environment:
         Variables:
-          TableName: !Join [ "-", [ !Ref Stage, !Ref TableName ] ]
+          TableName: !Join ["-", [!Ref Stage, !Ref TableName]]
       Events:
         SubscribeToEvent:
           Type: Api
           Properties:
-            Path: /subscriptions/{eventName}/{eventVersion}
+            Path: /subscriptions
             Method: post
             RequestModel:
-              Model: Unit
+              Model: SubscriptionModel
               Required: true
               ValidateBody: true
             RestApiId: !Ref SelfServicePortalApi
@@ -109,7 +131,14 @@ Resources:
               Effect: Allow
               Action:
                 - dynamodb:PutItem
-              Resource: !Join [ "/", [ !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table", !Join [ "-", [ !Ref Stage, !Ref TableName ] ] ] ]
+              Resource:
+                !Join [
+                  "/",
+                  [
+                    !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table",
+                    !Join ["-", [!Ref Stage, !Ref TableName]],
+                  ],
+                ]
 
   GetAllEventsFunction:
     Type: AWS::Serverless::Function
@@ -121,7 +150,7 @@ Resources:
         - x86_64
       Environment:
         Variables:
-          TableName: !Join [ "-", [ !Ref Stage, !Ref TableName ] ]
+          TableName: !Join ["-", [!Ref Stage, !Ref TableName]]
       Events:
         GetAllEvents:
           Type: Api
@@ -135,7 +164,14 @@ Resources:
               Effect: Allow
               Action:
                 - dynamodb:Scan
-              Resource: !Join [ "/", [ !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table", !Join [ "-", [ !Ref Stage, !Ref TableName ] ] ] ]
+              Resource:
+                !Join [
+                  "/",
+                  [
+                    !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table",
+                    !Join ["-", [!Ref Stage, !Ref TableName]],
+                  ],
+                ]
 
   SelfServiceEventsTable:
     Type: AWS::DynamoDB::Table
@@ -156,7 +192,12 @@ Resources:
 Outputs:
   SelfServicePortalApi:
     Description: "API Gateway endpoint URL for dev stage for self-service portal API"
-    Value: !Sub "https://${SelfServicePortalApi}.execute-api.${AWS::Region}.amazonaws.com/dev/"
+    Value:
+      !Join [
+        "/",
+        !Sub "https://${SelfServicePortalApi}.execute-api.${AWS::Region}.amazonaws.com",
+        !Ref Stage,
+      ]
   CreateEventFunction:
     Description: "Create event Lambda Function ARN"
     Value: !GetAtt CreateEventFunction.Arn
