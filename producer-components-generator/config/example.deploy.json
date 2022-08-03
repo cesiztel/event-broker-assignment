@@ -1,0 +1,50 @@
+{
+  "application": "demo",
+  "event_type": "scanned_parcel",
+  "version": 0,
+  "schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "metadata": {
+        "type": "object",
+        "properties": {
+            "event_attributes": {
+              "type": "object",
+              "properties": {
+                "source": { "type":  "string" },
+                "target": { "type":  "string" }
+              },
+              "required": ["source", "target"]
+            }
+        },
+       "required": ["event_attributes"]
+     },
+      "data": {
+          "type": "object",
+          "properties": {
+            "dest_postal_code": {
+                "type": "string"
+            },
+            "dest_house": {
+                "type": "integer"
+            },
+            "parcel_weight": {
+                "type": "number"
+            },
+            "parcel_identification": {
+                "type": "string"
+            }
+          },
+          "required": [
+              "dest_postal_code",
+              "dest_house",
+              "parcel_height",
+              "parcel_identification"
+          ]
+      }
+    },
+    "required": ["metadata", "data"]
+  },
+  "connection_type": "HTTPS"
+}
