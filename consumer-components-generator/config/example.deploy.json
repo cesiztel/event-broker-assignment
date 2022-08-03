@@ -1,0 +1,1 @@
+{"event_type": "scanned_parcel", "target_unit": "u1", "version": "1", "connection_type": "LAMBDA", "connection_string": "arn:aws:lambda:eu-west-2:756525791342:function:my-target-lambda-processor"}
