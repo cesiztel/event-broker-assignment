@@ -46,5 +46,10 @@ class EventBrokerApiStack(Stack):
         )
 
         # Define deployment and stage depending on environment
-        dev_deployment = apigw.Deployment(self, id='dev_deployment', api=api)
-        apigw.Stage(self, id='stage_dev', deployment=dev_deployment, stage_name=context.environment)
+        dev_deployment = apigw.Deployment(self, id=f'{context.environment}_deployment', api=api)
+        apigw.Stage(
+            self, 
+            id=f'stage_{context.environment}', 
+            deployment=dev_deployment, 
+            stage_name=context.environment
+        )
