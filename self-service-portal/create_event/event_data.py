@@ -5,9 +5,9 @@ class EventData:
     """Dto representation of an event"""
     schema_definition = ''
 
-    def __init__(application, connection_type, event_type, description, schema_properties):
+    def __init__(self, application, connection_type, event_type, description, schema_properties):
         self.application = application
-        self.content_type = connection_type
+        self.connection_type = connection_type
         self.event_type = event_type
         self.description = description
         self.schema_properties = schema_properties

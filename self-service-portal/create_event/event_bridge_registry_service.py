@@ -16,7 +16,7 @@ class EventBridgeRegistrySchema:
         return EventBridgeRegistrySchema(
             json.dumps(event_data.schema_definition), 
             "self.service.portal.registry",
-            event_data.registry_name, 
+            event_data.event_type, 
             'JSONSchemaDraft4'
         )
 

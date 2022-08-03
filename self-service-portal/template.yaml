@@ -9,6 +9,9 @@ Parameters:
   TableName:
     Type: String
     Default: "self-service-events-table"
+  ApiName:
+    Type: String
+    Default: "self-service-portal-api"
 
 Globals:
   Function:
@@ -18,7 +21,7 @@ Resources:
   SelfServicePortalApi:
     Type: AWS::Serverless::Api
     Properties:
-      Name: SelfServicePortalApi
+      Name: !Join ["-", [!Ref Stage, !Ref ApiName]]
       StageName: !Ref Stage
       Models:
         SubscriptionModel:
@@ -89,7 +92,7 @@ Resources:
               Effect: Allow
               Action:
                 - schemas:CreateSchema
-              Resource: !Sub "arn:aws:schemas:${AWS::Region}:${AWS::AccountId}:schema/*.events/*"
+              Resource: !Sub "arn:aws:schemas:${AWS::Region}:${AWS::AccountId}:schema/self.service.portal.registry/*"
             - Sid: SSMPutItemStoragePolicy
               Effect: Allow
               Action:
@@ -195,8 +198,10 @@ Outputs:
     Value:
       !Join [
         "/",
-        !Sub "https://${SelfServicePortalApi}.execute-api.${AWS::Region}.amazonaws.com",
-        !Ref Stage,
+        [
+          !Sub "https://${SelfServicePortalApi}.execute-api.${AWS::Region}.amazonaws.com",
+          !Ref Stage,
+        ],
       ]
   CreateEventFunction:
     Description: "Create event Lambda Function ARN"
