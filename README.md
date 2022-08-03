@@ -48,10 +48,10 @@ General notes:
 The first step of the script is created an auxiliary bucket to store the events created on the service portal. Thisis created
 just as support mechanism in case on disaster, so the registry is deleted and needs to be recreated with all the events.
 
-Artifacts created:
+**_Artifacts created_**:
 
-Stack name: `{enviroment}-event-schemas-backup-service`
-Bucket name: `{enviroment}-event-schemas-backup-bucket`
+- Stack name: `{enviroment}-event-schemas-backup-service`
+- Bucket name: `{enviroment}-event-schemas-backup-bucket`
 
 Notes:
 
@@ -65,11 +65,11 @@ In the second step of the script is created a stack that contains two buckets wh
 components the architecture will create automatically for consumers and producers after a producer creates an event or a consumer
 subscribe to an event through the service portal
 
-Artifacts created:
+**_Artifacts created_**:
 
-Stack name: `{enviroment}-components-configuration-storage-service`
-Bucket name for procuders: `{enviroment}-publisher-components-bucket`
-Bucket name for consumers: `{enviroment}-subscriber-components-bucket`
+- Stack name: `{enviroment}-components-configuration-storage-service`
+- Bucket name for procuders: `{enviroment}-publisher-components-bucket`
+- Bucket name for consumers: `{enviroment}-subscriber-components-bucket`
 
 Notes:
 
@@ -83,7 +83,7 @@ In the third step we are going to create the infrastructure to insject events vi
 custom event bus to inject all our events. The current implementation supports HTTP producers. One of the
 improvements to be done is to add another type of producers
 
-Artifacts created:
+**_Artifacts created_**:
 
 Stack name for the API Gateway: `{enviroment}-event-broker-api-service`
 Stack name for event bus: `{environment}-event-broker-bus`
@@ -100,8 +100,141 @@ Notes:
 In the fourth step we need to depoy the service that interacts with the users to manage their events.
 This application used AWS SAM and uses the buckets and objects that we created on the previous steps
 
-Artifact created:
+**_Artifact created_**:
 
 Stack name: `{enviroment}-self-service-portal`
 API Gateway: `{environment}-self-service-portal-api`
 DynamoDBTable: `{environment}-self-service-events-table`
+
+## Full demo example
+
+1. The first step is the self service portal. We can create an event with the following endpoint:
+
+### Create events
+
+- Request: `POST /events`
+- Request Payload:
+  - application (str): Application that creates the request
+  - event_type (str): Short representation of the event
+  - description (str): Human representation of the event
+  - connection_type (enum): The type of the connection of the producer. Allow types HTTPS, SQS
+  - data: JSON Schema representation of the content. that data will be wrap by an envelop before to be store
+
+Example request
+
+```
+{
+    "application": "demo",
+    "event_type": "scanned_parcel",
+    "description": "Scanned parcel on the workshop",
+    "connection_type": "HTTPS",
+    "data": {
+        "type": "object",
+        "properties": {
+            "dest_postal_code": {
+                "type": "string"
+            },
+            "dest_house": {
+                "type": "integer"
+            },
+            "parcel_weight": {
+                "type": "number"
+            }
+        },
+        "required": ["dest_postal_code", "dest_house", "parcel_weight"]
+    }
+}
+```
+
+Notes:
+
+- For simplicity it was not taken in consideration authentication of users across the application.
+- Before save the event, the self service logic will wrap the content of the event on a full
+  JSON Schema with a predifine envolope. This is done because, the only one that should be aware
+  about the envolope is the self-service portal. No other application require to know about it. So
+  Producers and consumers just consume the events assuming the full schema schema including the envelope.
+
+2. The logic after sending the request is the following:
+
+- The API Gateway validates the body with the mandatory fields
+- The data of the event is wrapped on an enveloped.
+- Lambda recieve the event and store on the database
+- Event is store on the registry. The first creation of the event is always version 1.
+- Event is store on the backup
+- Event generates the `deploy` script for the producers.
+
+3. Now we can deploy the producer components:
+
+- Download the `deploy.json` script from the producer bucket.
+- Copy that file on the `config/` folder on the `producer-components-generator`.
+- The stack requires the API_GATEWAY_ID and API_GATEWAY_ROOT_ID of the event broker api
+  as parameters of the `cdk deploy`
+- This will deploy a stack where contains:
+
+```
+HTTP Procesor components
+
+HTTP Model - that corresponds to the JSON Schema of the event
+HTTP Resource - /{event_type}/{version}
+HTTP Request Validator - All the requests that does not match the schema will be rejected
+so we do not need to add extra latency to validate the schema inside of the lambda.
+```
+
+After the deployment we will see how we can run the request:
+
+POST {event_broker_api}/scanned_parcel/1
+The request payload will need to match the JSON Schema created
+
+If the request is successfull the Lambda will redirect the event to the EventBridge bus
+
+5. Now consumers can subscribe to the `scanned_parcel` event:
+
+### Subscribe event
+
+- Request: `POST /subscriptions`
+- Request Payload:
+  - event_type (str): Short representation of the event
+  - version (str): Version of the event
+  - target_unit (str): Unit or department that we want to make sure the event is deliver. This is because
+    we do not want to depend only on the event data rules matching. In case that the event is really big
+    we do not want to rely on that.
+  - connection_type (enum): The type of the connection of the consumer. Allow types HTTPS, LAMBDA, SQS
+  - connection_string: ARN of the LAMBA/SQS to send the event. Can be also HTTPS endpoint
+
+Example request
+
+```
+{
+    "event_type": "scanned_parcel",
+    "version": "1",
+    "target_unit": "u2",
+    "connection_type": "LAMBDA",
+    "connection_string": "arn:aws:lambda:{REGION}:{ACCOUNT}:function:my-target-lambda-processor"
+}
+```
+
+6. The logic after sending the request is the following:
+
+- The API Gateway validates the body with the mandatory fields
+- The configuration of the subscription is store on the database. It is not taken in consideration validation against
+  event existance
+- Generates the `deploy` script for the consumer.
+
+7. Now we can deploy the producer components:
+
+- Download the `deploy.json` script from the consumer bucket.
+- Copy that file on the `config/` folder on the `consumer-components-generator`.
+- The stack requires the ACCOUNT, REGION, EVENT_BUS_NAME as parameters of the `cdk deploy`
+- This will deploy a stack where contains:
+
+```
+Lambda Consumer components
+
+EventBrige rule - matches the target on the detail of the event and the detail_type. The detail type will contain
+embeed the version of the event.
+Lambda target of the rule - If the event matches the rule the event is redirect to the lambda
+```
+
+8. Finally we can go to the event broker API and produce events with POST /scanned/parcel that should
+   with the full payload of the event. The event should pass the JSON Schema validation and should also
+   match the rules of any consumer for EventBridge to redirect the event
