@@ -39,7 +39,7 @@ class ComponentsConfigurationStorageServiceStack(Stack):
         stack_name: str,
         **kwargs
     ) -> None:
-        super().__init__(scope, construct_id, **kwargs)
+        super().__init__(scope, construct_id, stack_name=stack_name, **kwargs)
         
         # Initialize the Contruct backup bucket
         ComponentsConfigurationConstruct(
