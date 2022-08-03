@@ -29,6 +29,6 @@ class EventData:
         connection_type = request_body["connection_type"]
         event_type = request_body["event_type"]
         description = request_body["description"] if 'description' in request_body else ""
-        schema_properties = request_body["schema"]["properties"]
+        schema_properties = request_body["data"]
 
         return EventData(application, connection_type, event_type, description, schema_properties)

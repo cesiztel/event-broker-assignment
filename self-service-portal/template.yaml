@@ -49,7 +49,7 @@ Resources:
           required:
             - application
             - event_type
-            - schema
+            - data
             - connection_type
           properties:
             application:
@@ -61,7 +61,7 @@ Resources:
             connection_type:
               type: string
               enum: ["HTTPS"]
-            schema:
+            data:
               type: object
 
   CreateEventFunction:
@@ -75,6 +75,8 @@ Resources:
       Environment:
         Variables:
           TableName: !Join ["-", [!Ref Stage, !Ref TableName]]
+          BackupBucketName: !Sub "${Stage}-event-schemas-backup-bucket"
+          PublisherComponentsBucketName: !Sub "${Stage}-publisher-components-bucket"
       Events:
         CreateEvent:
           Type: Api
@@ -105,6 +107,16 @@ Resources:
                     !Join ["-", [!Ref Stage, !Ref TableName]],
                   ],
                 ]
+            - Sid: Stmt1659494436189
+              Effect: Allow
+              Action:
+                - s3:PutObject
+              Resource: !Sub "arn:aws:s3:::${Stage}-event-schemas-backup-bucket/*"
+            - Sid: Stmt1659494437290
+              Effect: Allow
+              Action:
+                - s3:PutObject
+              Resource: !Sub "arn:aws:s3:::${Stage}-publisher-components-bucket/*"
 
   SubscribeToEventFunction:
     Type: AWS::Serverless::Function
@@ -117,6 +129,7 @@ Resources:
       Environment:
         Variables:
           TableName: !Join ["-", [!Ref Stage, !Ref TableName]]
+          ConsumerComponentsBucketName: !Sub "${Stage}-subscriber-components-bucket"
       Events:
         SubscribeToEvent:
           Type: Api
@@ -142,6 +155,11 @@ Resources:
                     !Join ["-", [!Ref Stage, !Ref TableName]],
                   ],
                 ]
+            - Sid: Stmt1659494438293
+              Effect: Allow
+              Action:
+                - s3:PutObject
+              Resource: !Sub "arn:aws:s3:::${Stage}-subscriber-components-bucket/*"
 
   GetAllEventsFunction:
     Type: AWS::Serverless::Function
