@@ -85,10 +85,10 @@ improvements to be done is to add another type of producers
 
 **_Artifacts created_**:
 
-Stack name for the API Gateway: `{enviroment}-event-broker-api-service`
-Stack name for event bus: `{environment}-event-broker-bus`
-Broker bus: `{environment}.custom.events.bus`
-API Gateway + Lamda injector: `{environment}-event-broker-api`
+- Stack name for the API Gateway: `{enviroment}-event-broker-api-service`
+- Stack name for event bus: `{environment}-event-broker-bus`
+- Broker bus: `{environment}.custom.events.bus`
+- API Gateway + Lamda injector: `{environment}-event-broker-api`
 
 Notes:
 
