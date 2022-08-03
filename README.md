@@ -238,3 +238,103 @@ Lambda target of the rule - If the event matches the rule the event is redirect 
 8. Finally we can go to the event broker API and produce events with POST /scanned/parcel that should
    with the full payload of the event. The event should pass the JSON Schema validation and should also
    match the rules of any consumer for EventBridge to redirect the event
+
+## Considerations
+
+- This solution design does not take in consideration certain things for simplicity:
+  - It does not include a build pipelie for the components. The ideal candidate is when the event is generated, call a Step Functions
+    workflow where one of the steps is the cdk project of the consumer or the producer. The projects are already
+    prepare for that since we have the deploy json and the process of using it. Ideally the build process needs to be done
+    on the AWS Code build.
+- Authorization of the API's (broker and self service): Both API can be added authorization with Custom Lambda
+  Authorizers or using Cognito as authentication provider.
+- Event Bridge can process top 10.000 events per second. In order to manage a peak of 20.000 we can do:
+  - Create a SQS queue for injection of messsages. This will increase the latency of the events on peak times,
+    but it will not throttle the system. We need to take in consideration as well increasing the concurrency of the lambda
+    injector.
+- Another aspect to take in consideration is the payload of the event. This solution desing does not includes
+  the case that the payload is bigger than 256 KB which is the quota of the limit of the event. In that case the lambda
+  injector will need to send the payload to the S3 and replace the content of the data payload for a S3 link. The consumers
+  does not rely on the data for the event matching but on the target, so, they can open the S3 and enrich the event on
+  consumption time.
+- Monitoring. The monitoring can be seen on the main matrics on thje CloudWatch since we can see the bus and the rule for
+  certain event and version. It's important to take in account the limit of 100 rules per bus and limit of 300 buses. Depending
+  on the use case we need to go for a multi bus model and the architecture will need to include a way to integrate different
+  buses on the flow.
+
+## Pricing
+
+### Self-Service portal
+
+For simplicty we will assume that we will receive 1000 million requests month:
+
+**_API Gateway_**
+Depending on the number of requests base on changes on the events. The standard price for a REST API is:
+First 333 million / month -> $3.50. Because is unlikely that the self service portal pass the quote, the total
+price will be $3.50
+**_Lambda executions (each lambda will receive an average of 300k requests)._**
+We have 3 lambdas
+
+- Monthly compute charges. We assume that we assign to the lambda 1536MB
+  The monthly compute price is $0.0000166667 per GB-s and the free tier provides 400,000 GB-s.
+Total compute (seconds) = 0.3 million * 120ms = 36,000 seconds
+Total compute (GB-s) = 36,000 * 1536MB/1024 MB = 35,000 GB-s
+Total compute – Free tier compute = monthly billable compute GB- s
+35,000 GB-s – 400,000 free tier GB-s = Part of the free tier
+Monthly compute charges = Part of free tier so 0$
+- Monthly request charges
+  The monthly request price is $0.20 per one million requests and the free tier provides 1 million requests per month.
+Total requests – Free tier requests = monthly billable requests
+0.3 million requests – 1 million free tier requests = We will still be in free tier so 0$
+- DynamoDB
+  We can assume that we use eventual consistency requests for WCU and RCU
+  The payload is not going to exceed on the 1MB
+  For simplicity, assume that your consumed capacity remains constant at 80 RCUs and 80 WCUs. Your table also remains provisioned for 114 WCUs and 114 RCUs, with a daily charge of $2.1341, broken out as:
+  114 WCUs x $0.00065 per hour x 24 hours = $1.7784
+  114 RCUs x $0.00013 per hour x 24 hours = $0.3557
+  For the month, you are charged $64.04
+  The AWS Free Tier includes 25 WCUs and 25 RCUs for tables using the DynamoDB Standard table class, reducing your monthly bill by $14.04:
+  25 WCUs x $0.00065 per hour x 24 hours x 30 days = $11.70
+  25 RCUs x $0.00013 per hour x 24 hours x 30 days = $2.34
+  Data storage: Assume your table occupies 25 GB of storage at the beginning of the month and grows to 29 GB by the end of the month, averaging 27 GB based on the continuous monitoring of your table size. Since your table class is set to DynamoDB Standard, the first 25 GB of storage are included in the AWS Free Tier. The remaining 2 GB of storage are charged at $0.25 per GB, resulting in a table storage cost of $0.50 for the month.
+  Total = $64.04 - ($11.70 + $2.34) + $0.50
+
+### Buckets (schema backup and deployment configuration)
+
+We have three S3 buckets:
+Storage will be close 0 becaause the json files will be very small
+For put and get objects wher have:
+PUT - (per 1,000 requests) - $0.0053
+GET - (per 1,000 requests) - $0.00042
+For the backup will pay for the puts but not for gets at less we have some disaster recovery
+
+### Event Bridge
+
+**_API Gateway of the broker_**
+In the peak we have 20k per second -> 1.2M per minute -> 72M per hour -> 1728M month
+First 333 million $3.50
+Next 667 million $3.33
+So the price will start from $3.50 and going down to $3.33
+
+**_Lambda injestor_**
+Monthly compute charges
+
+The monthly compute price is $0.0000166667 per GB-s and the free tier provides 400,000 GB-s.
+Total compute (seconds) = 1728M million _ 120ms = 207,360 seconds
+Total compute (GB-s) = 207,360 _ 1536MB/1024 MB = 311,040 GB-s
+Total compute – Free tier compute = monthly billable compute GB- s
+311,040 GB-s – 400,000 free tier GB-s = Part of the free tier
+
+Monthly request charges
+
+The monthly request price is $0.20 per one million requests and the free tier provides 1 million requests per month.
+Total requests – Free tier requests = monthly billable requests
+1728M requests – 1 million free tier requests = 1727M million monthly billable requests
+Monthly request charges = 1727M \* $0.2/M = $345
+
+Total monthly charges
+Total charges = Compute charges + Request charges = $345 per month
+
+**\*Event bridge**
+Monthly events = 1727M events (all equal to or less than 64 KB each) Assuming each request transform in an event
+Monthly events charges = 1727M \* $1.00/M = $1727 per month
